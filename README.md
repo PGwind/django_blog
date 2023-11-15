@@ -1,7 +1,10 @@
 ## 介绍
 
-[![img](https://camo.githubusercontent.com/2b2ace49c4a78cb77e57a663f4ca1d6a6952467ab81321e6b914ff1a2462f6fa/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f707974686f6e2d332e372e302d6f72616e67652e737667)](https://www.python.org/downloads/release/python-370/) [![img](https://camo.githubusercontent.com/51eee0e958628da9b2183361b7a7069f91dd5341c85cba2dcb6e473ebc559e1e/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f646a616e676f2d322e322d677265656e2e737667)](https://docs.djangoproject.com/en/2.1/releases/2.1/) [![img](https://camo.githubusercontent.com/6ff8f27b9d02946d4420683a26186bf55f91ec0a701bedefc1ba5fbbdcbaea56/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f626f6f7473747261702d342e312e332d626c75652e737667)](https://getbootstrap.com/docs/4.1/getting-started/introduction/) [![img](https://camo.githubusercontent.com/77fe8c8f9cfc56b5c08a37ef0c0caf479128581f65d9a0ce9f81cb92151b0304/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f6c6963656e73652d43435f42595f4e435f342e302d3030303030302e737667)](https://creativecommons.org/licenses/by-nc/4.0/)
-
 使用 `Django` 框架编写的一个简单博客
 
 参考教程	[Django搭建个人博客：前言 - 杜赛的博客 (dusaiphoto.com)](https://www.dusaiphoto.com/article/1/) 
+
+
+
+![](./image/blog.png)
+
