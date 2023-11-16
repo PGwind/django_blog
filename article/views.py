@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
-from .models import ArticlePost
+from .models import ArticlePost, ArticleColumn
 from .forms import ArticlePostForm
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
@@ -8,7 +8,9 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from comment.models import Comment
 import markdown
-
+# 引入评论表单
+from comment.forms import CommentForm
+from django.views import View
 
 # Create your views here.
 
@@ -17,35 +19,49 @@ def article_list(request):
     # 搜索
     search = request.GET.get('search')
     order = request.GET.get('order')
-    # 用户搜索逻辑
-    if search:
-        if order == 'total_view':
-            article_lists = ArticlePost.objects.filter(
-                Q(title__icontains=search) |
-                Q(body__icontains=search)
-            ).order_by('-total_views')
-        else:
-            article_lists = ArticlePost.objects.filter(
-                Q(title__icontains=search) |
-                Q(body__icontains=search)
-            )
-    else:
-        # 将search置空
-        search = ''
-        if order == 'total_views':
-            article_lists = ArticlePost.objects.all().order_by('-total_views')
-        else:
-            article_lists = ArticlePost.objects.all()
+    column = request.GET.get('column')
+    tag = request.GET.get('tag')
 
-    # 每页显示1篇文章
-    paginator = Paginator(article_lists, 6)
-    # 获取url页码
+    # 初始化查询集
+    article_list = ArticlePost.objects.all()
+
+    # 搜索查询集
+    if search:
+        article_list = article_list.filter(
+            Q(title__icontains=search) |
+            Q(body__icontains=search)
+        )
+    else:
+        # 将 search 参数重置为空
+        search = ''
+
+    # 栏目查询集
+    if column is not None and column.isdigit():
+        article_list = article_list.filter(column=column)
+
+    # 标签查询集
+    if tag and tag != 'None':
+        article_list = article_list.filter(tags__name__in=[tag])
+
+    # 查询集排序
+    if order == 'total_views':
+        # 按热度排序博文
+        article_list = article_list.order_by('-total_views')
+
+    # 每页显示 1 篇文章
+    paginator = Paginator(article_list, 3)
+    # 获取 url 中的页码
     page = request.GET.get('page')
     # 将导航对象相应的页码内容返回给 articles
     articles = paginator.get_page(page)
-
     # 需要传递给模板（templates）的对象
-    context = {'articles': articles, 'order': order, 'search': search}
+    context = {
+        'articles': articles,
+        'order': order,
+        'search': search,
+        'column': column,
+        'tag': tag,
+    }
     # render函数：载入模板，并返回context对象
     return render(request, 'article/list.html', context)
 
@@ -70,7 +86,16 @@ def article_detail(request, article_id):
     )
     article.body = md.convert(article.body)
 
-    context = {'article': article, 'toc': md.toc, 'comments': comments}
+    # 引入评论表单
+    comment_form = CommentForm()
+    # 需要传递给模板的对象
+    context = {
+        'article': article,
+        'toc': md.toc,
+        'comments': comments,
+        'comment_form': comment_form,
+    }
+
     return render(request, 'article/detail.html', context)
 
 
@@ -80,7 +105,7 @@ def article_create(request):
     # 判断用户是否提交数据
     if request.method == "POST":
         # 将提交的数据赋值到表单实例中
-        article_post_form = ArticlePostForm(data=request.POST)
+        article_post_form = ArticlePostForm(request.POST, request.FILES)
         # 判断提交的数据是否满足模型的要求
         if article_post_form.is_valid():
             # 保存数据但不提交到数据库
@@ -89,8 +114,13 @@ def article_create(request):
             # 如果你进行过删除数据表的操作，可能会找不到id=1的用户
             # 此时请重新创建用户，并传入此用户的id
             new_article.author = User.objects.get(id=request.user.id)
+            # 栏目
+            if request.POST['column'] != 'none':
+                new_article.column = ArticleColumn.objects.get(id=request.POST['column'])
             # 将新文章保存到数据库
             new_article.save()
+            # tags表单,保存tags多对多关系
+            article_post_form.save_m2m();
             # 完成后返回到文章列表
             return redirect("article:article_list")
         # 如果数据不合法
@@ -100,8 +130,10 @@ def article_create(request):
     else:
         # 创建表单实例
         article_post_form = ArticlePostForm()
+        # 栏目
+        columns = ArticleColumn.objects.all()
         # 赋值上下文
-        context = {'article_post_form': article_post_form}
+        context = {'article_post_form': article_post_form, 'columns': columns}
         # 返回模板
         return render(request, 'article/create.html', context)
 
@@ -145,11 +177,25 @@ def article_update(request, article_id):
         article_post_form = ArticlePostForm(data=request.POST)
         # 判断提交的数据是否满足模型要求
         if article_post_form.is_valid():
-            # 保存新写入的title、body数据
+            # 保存新写入的title、body、column数据
             article.title = request.POST['title']
             article.body = request.POST['body']
+
+            # 文章栏目
+            if request.POST['column'] != 'none':
+                article.column = ArticleColumn.objects.get(id=request.POST['column'])
+            else:
+                article.column = None
+
+            # 文章头图
+            if request.FILES.get('avatar'):
+                article.avatar = request.FILES.get('avatar')
+
+            # 文章标签
+            article.tags.set(request.POST.get('tags').split(','), clear=True)
+
             article.save()
-            # 完成后返回到修改的文章中
+            # 完成后返回到修改的文章中 (这里article_id不能修改)
             return redirect("article:article_detail", article_id=article_id)
         # 如果数据不合法
         else:
@@ -158,7 +204,22 @@ def article_update(request, article_id):
     else:
         # 创建表单实例
         article_post_form = ArticlePostForm()
+        columns = ArticleColumn.objects.all()
         # 赋值上下文，将 article 文章对象也传递进去，以便提取旧的内容
-        context = {'article': article, 'article_post_form': article_post_form}
+        context = {
+            'article': article,
+            'article_post_form': article_post_form,
+            'columns': columns,
+            'tags': ','.join([x for x in article.tags.names()]),
+        }
         # 将响应返回到模板中
         return render(request, 'article/update.html', context)
+
+
+# 点赞数 +1
+class IncreaseLikesView(View):
+    def post(self, request, *args, **kwargs):
+        article = ArticlePost.objects.get(id=kwargs.get('id'))
+        article.likes += 1
+        article.save()
+        return HttpResponse('success')
